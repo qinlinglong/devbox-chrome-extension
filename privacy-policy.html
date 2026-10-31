@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>开发匣 · DevBox 隐私政策</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{max-width:720px;margin:40px auto;padding:0 20px;color:#1f2937;font:16px/1.8 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}h1{font-size:28px}h2{font-size:19px;margin-top:28px}small{color:#64748b}</style></head>
+<body>
+<h1>开发匣 · DevBox 隐私政策</h1>
+<small>最后更新：2026-10-31</small>
+<h2>概述</h2><p>开发匣是一款面向开发人员的开发工具箱，包含 64 项浏览器内工具。我们不运营用于收集用户数据的服务器，也不会将用户数据上传到开发匣服务器；用户主动使用 HTTP 接口调试或 DNS 查询时，数据会按本政策所述发送到用户指定目标或公开 DNS 服务。</p>
+<h2>处理的数据</h2><p>你主动输入、粘贴或通过右键菜单传入的文本只在扩展运行期间用于生成工具结果。收藏工具和最近使用记录保存在 Chrome 的本地扩展存储中。除你主动在 DevTools 面板中选择的网络条目外，扩展不读取浏览页面内容、浏览历史或身份凭证。</p><p>当你主动打开 DevTools 中的「开发匣」面板时，面板会读取当前 DevTools Network 会话中的请求 URL、资源类型和状态等元数据。只有在你选择某条请求后，面板才会读取该请求的请求体和响应体，用于显示、格式化或编解码。相关内容最多在当前 DevTools 会话内存中暂存，不写入扩展存储，不上传到开发匣服务器，也不会读取 Cookie；关闭 DevTools 后释放。</p>
+<h2>数据共享与出售</h2><p>扩展不用于广告、分析、出售、转让或信用评估，也不向开发匣服务器上传用户数据。HTTP 工具仅在用户主动指定目标后向该目标发起请求；DNS 工具仅在用户主动查询时，将用户输入的域名和记录类型发送给 Cloudflare DNS-over-HTTPS（<code>cloudflare-dns.com</code>），Cloudflare 请求失败时发送给 Google Public DNS（<code>dns.google</code>），以返回 DNS 结果。除这些用户主动指定或必要的 DNS 查询外，不向第三方传输数据。扩展不包含远程脚本、广告或分析 SDK。</p>
+<h2>Chrome Web Store Limited Use</h2><p>从 Chrome DevTools Network 会话读取的数据仅用于用户主动打开的开发匣面板中的网络调试、格式化和编解码功能。数据不用于广告、个性化推荐、分析用户行为、出售、转让或信用评估，不会发送到开发匣服务器，也不会被人工读取。</p>
+<h2>权限</h2><p><strong>storage</strong> 用于保存收藏和最近使用记录；<strong>contextMenus</strong> 用于提供选中文本的开发处理右键入口；<strong>devtools_page</strong> 用于创建用户主动打开的开发匣 DevTools 面板；可选站点权限仅在用户主动运行 HTTP 接口调试工具并确认后，用于访问当前接口地址。</p>
+<h2>联系</h2><p>发布者应在 Chrome Web Store 开发者后台填写可接收用户反馈的联系邮箱，并将本页面部署到一个公开、稳定的 HTTPS 地址后填入隐私政策 URL。</p>
+</body></html>

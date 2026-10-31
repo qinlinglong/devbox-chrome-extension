@@ -1,0 +1,3 @@
+.tool-switch{max-width:150px;height:25px;padding:0 22px 0 6px;border:1px solid var(--line);border-radius:5px;color:#475569;background:#fff;font-size:10px}
+.tool-switch:focus{border-color:#818cf8;outline:2px solid #e0e7ff;outline-offset:1px}
+@media(max-width:700px){.tool-switch{max-width:112px}.workspace-head{gap:5px}.workspace-head h2{font-size:12px}.workspace-head p{display:none}}

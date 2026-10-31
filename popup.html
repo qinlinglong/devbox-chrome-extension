@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>开发匣 · DevBox</title><link rel="stylesheet" href="popup.css"><link rel="stylesheet" href="workspace-switcher.css">
+</head>
+<body>
+  <header class="topbar"><div class="brand"><img class="brand-mark" src="icon128.png" alt="开发匣"><div><h1>开发匣</h1><p>DevBox · 开发者工具箱</p></div></div><div class="top-actions"><button id="settings" class="icon-btn" title="打开设置">设置</button><button id="open-full" class="icon-btn" title="在新标签页打开完整工作区">打开工作区</button></div></header>
+  <div class="privacy">普通工具在本地处理；网络请求仅在你主动运行时发送</div>
+  <section id="settings-panel" class="settings-panel hidden" aria-label="开发匣设置"><div><strong>打开方式</strong><p>设置点击插件图标后的默认工作区形态。</p></div><label class="setting-check"><input id="default-full" type="checkbox">默认打开全页工作区</label><button id="close-settings" class="icon-btn">完成</button></section>
+  <main>
+    <div class="search-row"><input id="search" placeholder="搜索工具，例如 JSON、Base64、时间…" autocomplete="off"><button id="clear-search" class="clear hidden">×</button></div>
+    <nav id="categories" class="categories"></nav>
+    <div class="filter-row"><div class="filters"><button class="filter active" data-scope="all">全部</button><button class="filter" data-scope="favorite">收藏</button><button class="filter" data-scope="recent">最近</button></div><button id="sort" class="sort">默认排序</button></div>
+    <section id="tool-grid" class="tool-grid"></section>
+    <p id="empty" class="empty hidden">没有找到匹配的工具</p>
+  </main>
+  <section id="workspace" class="workspace hidden">
+    <div class="workspace-head"><button id="back" class="back">返回</button><div><h2 id="tool-title"></h2><p id="tool-desc"></p></div><select id="tool-switch" class="tool-switch" aria-label="切换工具" title="切换工具"></select><button id="favorite-tool" class="star">收藏</button></div>
+    <div id="tool-options" class="tool-options"></div>
+    <div id="secondary-wrap" class="secondary-wrap hidden"><div class="pane-head"><label>对比 JSON</label><button id="secondary-sample">示例</button></div><textarea id="secondary-input" spellcheck="false"></textarea></div>
+    <div class="io-grid"><div class="pane"><div class="pane-head"><label id="input-label">输入</label><button id="sample">示例</button></div><textarea id="input" spellcheck="false"></textarea><div class="pane-foot"><button id="paste">粘贴</button><button id="clear-input">清空</button></div></div><button id="swap" class="swap" title="交换输入和结果">交换</button><div class="pane output-pane"><div class="pane-head"><label>结果</label><button id="copy">复制</button></div><textarea id="output" readonly spellcheck="false"></textarea><div id="status" class="status"></div></div></div>
+    <button id="run" class="run">运行工具 <span>Ctrl Enter</span></button>
+  </section>
+  <footer><span>开发匣 1.0.0</span><span>Ctrl + F 搜索 · ↑↓ 选择 · Enter 打开</span></footer>
+  <script src="popup.js"></script><script src="popup-keyboard.js"></script><script src="paste-auto-run.js"></script><script src="workspace-switcher.js"></script>
+</body>
+</html>

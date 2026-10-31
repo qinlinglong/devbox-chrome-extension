@@ -1,0 +1,7 @@
+.DS_Store
+Thumbs.db
+*.log
+
+# Historical promo drafts and local browser captures are not source assets.
+store-assets/legacy/
+store-assets/screenshot_*.jpg

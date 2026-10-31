@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "开发匣 DevBox",
+  "version": "1.0.0",
+  "minimum_chrome_version": "102",
+  "description": "面向开发人员的本地工具箱：JSON、编码、时间、哈希、JWT、正则、接口调试与网络数据处理。",
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_title": "打开开发匣 DevBox",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icon16.png", "32": "icon32.png" }
+  },
+  "permissions": ["storage", "contextMenus"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "devtools_page": "devtools.html",
+  "background": { "service_worker": "service-worker.js", "type": "module" },
+  "commands": { "open-toolbox": { "suggested_key": { "default": "Ctrl+Shift+K" }, "description": "打开开发匣" } }
+}

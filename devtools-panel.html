@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>开发匣 · 网络数据</title>
+  <link rel="stylesheet" href="devtools-panel.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="icon128.png" alt="开发匣"><div><h1>开发匣 · 网络数据</h1><p>从当前 DevTools Network 会话读取并处理</p></div></div>
+    <div class="top-actions"><button id="refresh" class="button secondary" title="重新加载当前页面并重新捕获请求">刷新页面</button><button id="clear" class="button secondary" title="清空开发匣当前列表，不影响浏览器 Network 面板">清空列表</button></div>
+  </header>
+  <div class="notice">仅处理当前 DevTools 会话中的条目；「刷新页面」会重载当前页面并重新捕获请求，手动刷新或导航也会自动切换到新的请求会话。JSON 响应会自动格式化，数据只在内存中使用，不保存、不上传，也不会读取 Cookie。选中文本还可使用浏览器右键菜单直接交给开发匣处理。</div>
+  <div class="toolbar"><input id="search" placeholder="筛选 URL、方法或状态码" autocomplete="off"><span id="count">0 条请求</span></div>
+  <div id="type-filters" class="type-filters" aria-label="资源类型过滤"></div>
+  <main class="layout">
+    <section class="request-list" aria-label="网络请求列表"><div id="empty" class="empty">暂无请求。请保持 DevTools 打开并重新加载页面。</div><div id="list"></div></section>
+    <section class="details" aria-live="polite">
+      <div class="details-head"><div><h2 id="selected-title">选择一条请求</h2><p id="selected-meta">请求体和响应体只会在你选择后读取；选择处理方式后自动执行，也可手动再次处理。</p></div></div>
+      <div class="content-grid">
+        <article class="content-card"><div class="card-head"><label>请求体</label><span id="request-info"></span><select id="request-action" class="action-select"></select><button id="process-request" class="button">处理</button><button id="open-request-full" class="button secondary" title="在开发匣全屏工作区处理请求体" aria-label="在开发匣全屏工作区处理请求体">全屏</button></div><textarea id="request-raw" readonly placeholder="该请求没有可读取的文本请求体"></textarea><label class="result-label">处理结果</label><textarea id="request-decoded" readonly></textarea></article>
+        <article class="content-card"><div class="card-head"><label>响应体</label><span id="response-info"></span><select id="response-action" class="action-select"></select><button id="process-response" class="button">处理</button><button id="open-response-full" class="button secondary" title="在开发匣全屏工作区处理响应体" aria-label="在开发匣全屏工作区处理响应体">全屏</button></div><textarea id="response-raw" readonly placeholder="选择请求后读取响应体"></textarea><label class="result-label">处理结果</label><textarea id="response-decoded" readonly></textarea></article>
+      </div>
+    </section>
+  </main>
+  <script src="devtools-panel.js"></script>
+</body>
+</html>
