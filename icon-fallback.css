@@ -1,0 +1,1 @@
+.tool-icon.icon-fallback{display:flex;align-items:center;justify-content:center;border:1px solid #cbd5e1;border-radius:5px;color:#475569;background:#f8fafc;font-size:8px;font-weight:700;line-height:1}.tool-icon.icon-fallback::after{content:attr(data-fallback)}

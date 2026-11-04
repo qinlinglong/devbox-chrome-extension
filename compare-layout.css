@@ -1,0 +1,2 @@
+.compare-source-hidden{display:none!important}.compare-pane.has-preview .compare-code{height:330px;margin-top:0}.compare-pane.has-preview .pane-head{margin-bottom:5px}.compare-pane .pane-head>div{display:flex;gap:1px;align-items:center;flex-wrap:wrap}.compare-pane .pane-head button{white-space:nowrap}
+@media(max-width:700px){.compare-pane.has-preview .compare-code{height:280px}}

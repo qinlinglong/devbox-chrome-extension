@@ -4,7 +4,7 @@
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ACTIONS = [
-    ['raw', '原文'], ['base64-decode', 'Base64 解码'], ['base64-encode', 'Base64 编码'],
+    ['smart', '智能解码/格式化'], ['raw', '原文'], ['base64-decode', 'Base64 解码'], ['base64-encode', 'Base64 编码'],
     ['json-minify', 'JSON 压缩'], ['url-decode', 'URL 解码'],
     ['url-encode', 'URL 编码'], ['unicode-decode', 'Unicode 解码'], ['hex-decode', 'Hex 解码'],
     ['jwt', 'JWT 解析'], ['timestamp', '时间戳格式化'], ['html-decode', 'HTML 实体解码'],
@@ -62,6 +62,82 @@
     try { return JSON.stringify(JSON.parse(source), null, 2); } catch (_) { return source; }
   }
 
+  const AUTO_MAX_SOURCE = 1000000;
+  const AUTO_MAX_STRING = 300000;
+  const AUTO_MAX_DEPTH = 6;
+  const AUTO_MAX_NODES = 5000;
+
+  function decodeBase64Candidate(value) {
+    const source = String(value ?? '').trim();
+    const compact = source.replace(/\s/g, '').replace(/-/g, '+').replace(/_/g, '/');
+    if (compact.length < 16 || compact.length > AUTO_MAX_STRING || compact.length % 4 === 1 || !/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) return null;
+    try {
+      const bytes = base64Bytes(compact);
+      if (!bytes.length || bytes.length > AUTO_MAX_STRING) return null;
+      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      const text = decoded.trim();
+      if (!text) return null;
+      let parsed;
+      try { parsed = JSON.parse(text); } catch (_) {}
+      const visible = [...decoded].filter((char) => char === '\n' || char === '\r' || char === '\t' || char >= ' ').length / Math.max(decoded.length, 1);
+      const structured = parsed !== undefined && parsed !== null && typeof parsed === 'object';
+      if (!structured && visible < 0.9) return null;
+      if (!structured && decoded.length < 8) return null;
+      return { text: decoded, parsed, structured };
+    } catch (_) { return null; }
+  }
+
+  function autoDecodeValue(value, depth = 0, budget = { nodes: 0 }) {
+    if (budget.nodes++ >= AUTO_MAX_NODES || depth > AUTO_MAX_DEPTH) return value;
+    if (typeof value === 'string') {
+      const candidate = decodeBase64Candidate(value);
+      if (!candidate) return value;
+      if (candidate.structured) return autoDecodeValue(candidate.parsed, depth + 1, budget);
+      return candidate.text;
+    }
+    if (Array.isArray(value)) return value.map((item) => autoDecodeValue(item, depth + 1, budget));
+    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, autoDecodeValue(item, depth + 1, budget)]));
+    return value;
+  }
+
+  function parseFormPayload(source) {
+    const text = String(source ?? '').trim();
+    if (!text || text.length > AUTO_MAX_SOURCE || /[\r\n]/.test(text) || !/(?:^|&)[^=&]+=[^&]*/.test(text)) return null;
+    const result = {};
+    for (const part of text.split('&')) {
+      if (!part) continue;
+      const index = part.indexOf('=');
+      const rawKey = index < 0 ? part : part.slice(0, index);
+      const rawValue = index < 0 ? '' : part.slice(index + 1);
+      let key, formValue;
+      try { key = decodeURIComponent(rawKey.replace(/\+/g, ' ')); } catch (_) { key = rawKey; }
+      try { formValue = decodeURIComponent(rawValue.replace(/\+/g, ' ')); } catch (_) { formValue = rawValue; }
+      if (formValue.includes(' ')) {
+        const repaired = formValue.replace(/ /g, '+');
+        if (decodeBase64Candidate(repaired)) formValue = repaired;
+      }
+      result[key] = key in result ? (Array.isArray(result[key]) ? [...result[key], formValue] : [result[key], formValue]) : formValue;
+    }
+    return Object.keys(result).length ? result : null;
+  }
+
+  function autoFormatPayload(value, mimeType = '', encoding = '') {
+    const source = String(value ?? '');
+    if (!source.trim() || source.length > AUTO_MAX_SOURCE) return formatJsonBody(source, mimeType, encoding);
+    let parsed;
+    try { parsed = JSON.parse(source); } catch (_) {
+      const form = parseFormPayload(source);
+      if (form) return JSON.stringify(convertTimestampFields(autoDecodeValue(form)), null, 2);
+      const candidate = decodeBase64Candidate(source);
+      if (!candidate) return source;
+      if (candidate.structured) return JSON.stringify(convertTimestampFields(autoDecodeValue(candidate.parsed)), null, 2);
+      return candidate.text;
+    }
+    const decoded = autoDecodeValue(parsed);
+    const formatted = decoded && typeof decoded === 'object' ? convertTimestampFields(decoded) : decoded;
+    return typeof formatted === 'string' ? formatted : JSON.stringify(formatted, null, 2);
+  }
+
   function fillTypeFilters() {
     $('type-filters').innerHTML = TYPE_FILTERS.map(([value, label]) => `<button class="type-filter${state.type === value ? ' active' : ''}" data-type="${value}">${label}</button>`).join('');
     document.querySelectorAll('[data-type]').forEach((button) => {
@@ -78,6 +154,7 @@
   }
 
   const FULL_PAGE_ACTIONS = {
+    smart: ['smart-decode', ''],
     'base64-decode': ['base64', 'decode'],
     'base64-encode': ['base64', 'encode'],
     'json-minify': ['json-format', 'min'],
@@ -109,12 +186,15 @@
       $('selected-meta').textContent = '请先选择一条请求并等待内容读取完成';
       return;
     }
-    const value = side === 'request' ? state.content.requestBody : state.content.responseBody;
-    if (!value) {
+    const rawValue = side === 'request' ? state.content.requestBody : state.content.responseBody;
+    if (!rawValue) {
       $('selected-meta').textContent = `当前${side === 'request' ? '请求' : '响应'}没有可处理的文本内容`;
       return;
     }
     const actionId = side === 'request' ? $('request-action').value : $('response-action').value;
+    // Keep the original body in the full-page input. The selected tool owns
+    // the transformation so input and output remain easy to verify.
+    const value = rawValue;
     const [selectedTool, selectedMode] = fullPageTool(actionId, value);
     try {
       await chrome.storage.session.remove(['selection', 'selectedTool', 'selectedMode', 'autoRun']);
@@ -141,8 +221,8 @@
     $('request-decoded').value = '';
     $('response-raw').value = '';
     $('response-decoded').value = '';
-    $('request-action').value = 'raw';
-    $('response-action').value = 'raw';
+    $('request-action').value = 'smart';
+    $('response-action').value = 'smart';
   }
 
   async function selectEntry(id) {
@@ -164,8 +244,8 @@
       $('response-raw').value = responseBody;
       $('request-info').textContent = requestBody ? `${requestBody.length} 字符` : '无文本请求体';
       $('response-info').textContent = `${responseBody ? `${responseBody.length} 字符` : '无响应内容'}${result.responseEncoding ? ` · ${result.responseEncoding}` : ''}`;
-      $('request-decoded').value = '';
-      $('response-decoded').value = '';
+      $('request-decoded').value = autoFormatPayload(requestBody, '', result.requestEncoding);
+      $('response-decoded').value = autoFormatPayload(responseBody, result.mimeType || entry.mimeType, result.responseEncoding);
     } catch (error) {
       $('request-raw').value = '读取失败';
       $('response-raw').value = `读取失败：${error.message || '网络内容暂不可用'}`;
@@ -275,6 +355,7 @@
   }
 
   async function transform(value, action) {
+    if (action === 'smart') return autoFormatPayload(value);
     if (action === 'raw') return value;
     if (action === 'base64-decode') return decodeBase64(value);
     if (action === 'base64-encode') return encodeBase64(value);

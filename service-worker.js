@@ -17,6 +17,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({ id: 'devbox-selection', title: '打开开发匣处理选中文本', contexts: ['selection'] });
     [
+      ['smart-decode', '智能解码'],
       ['json-format', 'JSON 格式化'],
       ['base64-decode', 'Base64 解码'],
       ['url-decode', 'URL 解码'],
@@ -31,6 +32,7 @@ chrome.contextMenus.onClicked.addListener((info) => {
   if (info.menuItemId === 'devbox-selection' || String(info.menuItemId).startsWith(prefix)) {
     const action = info.menuItemId === 'devbox-selection' ? '' : String(info.menuItemId).slice(prefix.length);
     const actionMap = {
+      'smart-decode': ['smart-decode', ''],
       'json-format': ['json-format', 'format'],
       'base64-decode': ['base64', 'decode'],
       'url-decode': ['url', 'decode'],
@@ -39,7 +41,9 @@ chrome.contextMenus.onClicked.addListener((info) => {
       timestamp: ['timestamp', 'auto']
     };
     const [selectedTool = '', selectedMode = ''] = actionMap[action] || [];
-    const pending = chrome.storage.session.set({ selection: info.selectionText || '', selectedTool, selectedMode, autoRun: Boolean(selectedTool) });
+    // A context-menu selection must win over drafts left by an earlier popup
+    // or full-page workspace session.
+    const pending = chrome.storage.session.set({ selection: info.selectionText || '', selectedTool, selectedMode, autoRun: Boolean(selectedTool), draftInput: '', draftSecond: '' });
     if (pending && typeof pending.then === 'function') pending.then(openDevBox).catch(openDevBox);
     else openDevBox();
   }

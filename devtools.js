@@ -1,6 +1,7 @@
 (() => {
   const contextId = `devbox-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const records = new Map();
+  const liveRequests = new Map();
   let sequence = 0;
   let disposed = false;
   let resetGeneration = 0;
@@ -12,7 +13,13 @@
     try {
       chrome.runtime.sendMessage({ source: 'devbox-devtools', contextId, type, ...payload }, () => {
         const error = chrome.runtime.lastError;
-        if (error && /invalidated|context|closed/i.test(error.message || '')) disposed = true;
+        // A HarmonyOS Chromium fork may report the one-way notification port
+        // as closed after the panel handles a reset message. That is not the
+        // same as this DevTools context being invalidated; keep capturing live
+        // requests in that case.
+        if (error && /extension context invalidated|context was invalidated|context has been invalidated/i.test(error.message || '')) {
+          disposed = true;
+        }
       });
     } catch (_) {
       disposed = true;
@@ -104,6 +111,95 @@
     return best;
   }
 
+  function rememberLiveRequest(entry, request) {
+    if (!entry?.url || !request?.getContent) return;
+    const key = `${entry.method}\n${entry.url}`;
+    const list = liveRequests.get(key) || [];
+    const live = { entry, request, contentReady: false, responseBody: '', responseEncoding: '' };
+    list.push(live);
+    while (list.length > 8) list.shift();
+    liveRequests.set(key, list);
+    return live;
+  }
+
+  function findLiveRequest(entry) {
+    const key = `${entry?.method || ''}\n${entry?.url || ''}`;
+    const list = liveRequests.get(key) || [];
+    let best = null;
+    let bestScore = Number.NEGATIVE_INFINITY;
+    list.forEach((candidate, index) => {
+      if (candidate.entry.status && entry.status && candidate.entry.status !== entry.status) return;
+      const delta = candidate.entry.startedAt && entry.startedAt
+        ? Math.abs(candidate.entry.startedAt - entry.startedAt)
+        : 0;
+      // Some Chromium forks expose different timestamps to the live event and
+      // HAR. Once method, URL and status match, the newest live request is the
+      // useful one even when the timestamp delta exceeds matchScore's window.
+      if (delta > 300000) return;
+      const score = matchScore(candidate.entry, entry) >= 0
+        ? 100000 - delta
+        : 1000 - delta + index / 1000;
+      if (score > bestScore) {
+        best = candidate;
+        bestScore = score;
+      }
+    });
+    return best;
+  }
+
+  function attachLiveRequest(record) {
+    if (record?.request?.getContent) return true;
+    const live = findLiveRequest(record?.entry);
+    if (!live) return false;
+    record.live = live;
+    record.request = live.request;
+    if (live.contentReady) {
+      record.responseBody = live.responseBody;
+      record.responseEncoding = live.responseEncoding;
+    }
+    return true;
+  }
+
+  function normalizeContent(first, second = '') {
+    let body = first;
+    let encoding = second || '';
+    if (first && typeof first === 'object') {
+      body = first.content ?? first.responseBody ?? first.body ?? '';
+      encoding = first.encoding || encoding;
+    }
+    return {
+      body: body == null ? '' : (typeof body === 'string' ? body : String(body)),
+      encoding: encoding || ''
+    };
+  }
+
+  function captureLiveContent(live) {
+    if (!live?.request?.getContent) return;
+    let completed = false;
+    const finish = (first, second) => {
+      if (completed) return;
+      completed = true;
+      const content = normalizeContent(first, second);
+      live.contentReady = true;
+      live.responseBody = content.body;
+      live.responseEncoding = content.encoding;
+      for (const record of records.values()) {
+        if (record.live === live || matchScore(record.entry, live.entry) >= 0) {
+          record.responseBody = content.body;
+          record.responseEncoding = content.encoding;
+        }
+      }
+    };
+    try {
+      const result = live.request.getContent(finish);
+      if (result && typeof result.then === 'function') {
+        result.then((value) => finish(value, '')).catch(() => {});
+      }
+    } catch (_) {
+      // The later HAR fallback still handles browsers that reject an early read.
+    }
+  }
+
   function latestHarFor(record, done) {
     if (typeof chrome.devtools.network.getHAR !== 'function') {
       done(record.har || null);
@@ -118,7 +214,6 @@
       let bestScore = -1;
       entries.forEach((harEntry, index) => {
         const candidate = harMetadata(harEntry, `har-${harEntry._requestId || index}`);
-        if (clearCutoff && candidate.startedAt && candidate.startedAt <= clearCutoff) return;
         const score = matchScore(record.entry, candidate);
         if (score > bestScore) {
           best = harEntry;
@@ -169,12 +264,15 @@
       const existing = findBestRecord(entry);
       if (existing) {
         existing.har = harEntry;
+        attachLiveRequest(existing);
         const resourceType = entry.resourceType === 'other' && existing.entry.resourceType !== 'other'
           ? existing.entry.resourceType
           : entry.resourceType;
         existing.entry = { ...entry, resourceType, id: existing.entry.id };
       } else {
-        records.set(provisionalId, { entry, har: harEntry });
+        const record = { entry, har: harEntry };
+        attachLiveRequest(record);
+        records.set(provisionalId, record);
       }
     });
     while (records.size > 150) records.delete(records.keys().next().value);
@@ -184,16 +282,21 @@
     if (disposed) return;
     const id = String(++sequence);
     const entry = metadata(request, id);
-    if (clearCutoff && entry.startedAt && entry.startedAt <= clearCutoff) return;
+    const live = rememberLiveRequest(entry, request);
+    // This is a live completion event. Some Chromium builds report a stale
+    // startedAt after the list is cleared, while the request object still has
+    // valid response content.
     const existing = findBestRecord(entry, (record) => Boolean(record.har));
     let notificationEntry = entry;
     if (existing) {
       existing.entry = { ...entry, id: existing.entry.id };
       existing.request = request;
+      existing.live = live;
       notificationEntry = existing.entry;
     } else {
-      records.set(id, { entry, request });
+      records.set(id, { entry, request, live });
     }
+    captureLiveContent(live);
     if (records.size > 150) records.delete(records.keys().next().value);
     notify('request-added', { entry: notificationEntry });
   }
@@ -367,7 +470,19 @@
         sendResponse({ ok: false, error: '网络条目已失效，请重新选择。' });
         return undefined;
       }
+      attachLiveRequest(record);
       const requestBody = record.request?.request?.postData?.text || record.har?.request?.postData?.text || '';
+
+      if (Object.prototype.hasOwnProperty.call(record, 'responseBody')) {
+        sendResponse({
+          ok: true,
+          requestBody,
+          responseBody: record.responseBody,
+          responseEncoding: record.responseEncoding || '',
+          mimeType: record.entry.mimeType
+        });
+        return undefined;
+      }
 
       if (!record.request?.getContent) {
         latestHarFor(record, (harEntry) => {
